@@ -3,10 +3,12 @@ import java.time.format.DateTimeFormatter;
 
 public class Station {
     private String name;
-    private int line;
+    private String line;
     private LocalDate date;
     private String depth;
     private  boolean hasConnection;
+
+
 
     public Station(String name) {
         this.name = name;
@@ -20,11 +22,11 @@ public class Station {
         this.name = name;
     }
 
-    public int getLine() {
+    public String getLine() {
         return line;
     }
 
-    public void setLine(int line) {
+    public void setLine(String line) {
         this.line = line;
     }
 
@@ -63,6 +65,10 @@ public class Station {
                 ", depth=" + depth +
                 ", hasConnection=" + hasConnection +
                 '}';
+    }
+
+    public boolean equalsName(Station obj) {
+        return this.getName().equals(obj.getName());
     }
 }
 
