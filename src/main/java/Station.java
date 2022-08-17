@@ -6,7 +6,7 @@ public class Station {
     private String line;
     private LocalDate date;
     private String depth;
-    private  boolean hasConnection;
+    private  boolean hasConnection = false;
 
 
 

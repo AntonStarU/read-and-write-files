@@ -5,7 +5,6 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -14,8 +13,10 @@ import java.util.*;
 
 public class Main {
     private static Set<Station> stations = new TreeSet<>(Comparator.comparing(Station::getName));
-    private static Map<String, ArrayList<String>> linesAndStations = new HashMap<>();
+    private static Map<String, ArrayList<String>> linesAndStations = new TreeMap<>(Comparator.naturalOrder());
     private static List<String> stationsWithConnections = new ArrayList<>();
+
+    private static List<Line> lines = new ArrayList<>();
 
     private static Document docHTML;
 
@@ -33,26 +34,88 @@ public class Main {
 
     public static void main(String[] args) {
         try {
-            readFolders("/home/anton/Стільниця/folder");
-            readHTML();
+            readFolders("/user/data/");
             addLineAndConnection();
-            writeFileJSON();
+            readFileJSONToConsole(readFile("/data/map.json"));
+            writeFile1JSON("/user/file1.json");
+            writeFile2JSON("/user/file2.json");
         } catch (Exception ex) {
             ex.printStackTrace();
         }
     }
 
-    public static void writeFileJSON() {
-        JSONObject json = new JSONObject();
-        Map<String, String[]> changeCopy = new HashMap<>();
-        for (Map.Entry<String, ArrayList<String>> entry : linesAndStations.entrySet()) {
-            changeCopy.put(entry.getKey(), entry.getValue().toArray(new String[0]));
+    public static void writeFile1JSON(String out) throws Exception {
+        JSONObject jsonObject = new JSONObject();
+        JSONObject jsonLineAndStations = new JSONObject();
+        //add stations
+        for (String key : linesAndStations.keySet()) {
+            JSONArray nameStations = new JSONArray();
+            List<String> listStations = linesAndStations.get(key);
+            listStations.forEach(name -> nameStations.add(name));
+            jsonLineAndStations.put(key, listStations);
         }
-        String[] array = {"null"};
+        //add connections
+        JSONArray arrayConnections = new JSONArray();
+        for (String key : linesAndStations.keySet()) {
+            JSONObject currentObject = new JSONObject();
+            List<String> listStations = linesAndStations.get(key);
+            for (String nameStation : listStations) {
+                if (stationsWithConnections.contains(nameStation)) {
+                    currentObject = new JSONObject();
+                    currentObject.put("line", key);
+                    currentObject.put("station", nameStation);
+                    arrayConnections.add(currentObject);
+                }
+            }
+        }
+        //add lines
+        JSONArray arrayLines = new JSONArray();
+        addLine();
+        lines.forEach(line -> {
+            JSONObject objectLine = new JSONObject();
+            objectLine.put("number", line.getNumber());
+            objectLine.put("name", line.getName());
+            arrayLines.add(objectLine);
+        });
 
-//        json.put("station", changeCopy.keySet().forEach(k -> new JSONObject(k, new JSONArray(changeCopy.getOrDefault(k, array)))));
+        jsonObject.put("stations", jsonLineAndStations);
+        jsonObject.put("connections", arrayConnections);
+        jsonObject.put("lines", arrayLines);
 
-//        json.put("station", linesAndStations.keySet().forEach(k -> new JSONObject(k, new JSONArray(linesAndStations.get(k)))));
+        try (FileWriter file = new FileWriter(out)) {
+            file.write(jsonObject.toJSONString());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void addLine() {
+        Elements divLine1 = doc.getElementsByClass("js-metro-line t-metrostation-list-header t-icon-metroln ln-1");
+        divLine1.forEach(element -> lines.add(new Line(element.select("span").text(), element.attr("data-line"))));
+
+        Elements divLine = doc.getElementsByClass("js-toggle-depend s-depend-control-single  ").select("span");
+        divLine.forEach(element -> lines.add(new Line(element.select("span").text(), element.attr("data-line"))));
+    }
+
+    public static void writeFile2JSON(String out) throws Exception {
+        JSONObject object = new JSONObject();
+        JSONArray array = new JSONArray();
+        stations.forEach(station -> {
+            JSONObject currentStation = new JSONObject();
+            currentStation.put("name", station.getName());
+            currentStation.put("line", station.getLine());
+            currentStation.put("date", station.getDate());
+            currentStation.put("depth", station.getDepth());
+            if (station.isHasConnection()) {
+                currentStation.put("hasConnection", station.isHasConnection());
+            }
+            array.add(currentStation);
+        });
+        object.put("stations", array);
+
+        try (FileWriter file = new FileWriter(out)) {
+            file.write(object.toJSONString());
+        }
 
     }
 
@@ -113,6 +176,19 @@ public class Main {
                 readFolders(file1.getAbsolutePath());
             }
         }
+    }
+
+    public static void readFileJSONToConsole(String file) throws Exception {
+        JSONParser parser = new JSONParser();
+        JSONObject jsonObject = (JSONObject) parser.parse(file);
+        JSONObject jsonStation = (JSONObject) jsonObject.get("stations");
+        jsonStation.keySet().forEach(lineNumberObject -> {
+            int lineNumber = Integer.parseInt((String) lineNumberObject);
+            JSONArray arrayStations = (JSONArray) jsonStation.get((String) lineNumberObject);
+            System.out.println("Line: " + lineNumber + " stations: " + arrayStations.toArray().length);
+        });
+
+
     }
 
     public static void parseJSON_1(String file) throws Exception {
